@@ -1,0 +1,189 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+
+    "TestVPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.12.0.0/23"
+      }
+    },
+
+    "TestSubnet": {
+      "Type": "AWS::EC2::Subnet",
+      "DependsOn": "TestVPC",
+      "Properties": {
+        "VpcId": {"Ref": "TestVPC"},
+        "AvailabilityZone": {"Fn::Select":["0",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]},
+        "CidrBlock": "10.12.0.0/24",
+        "MapPublicIpOnLaunch": "True"
+      }
+    },
+
+    "RouteTable1": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {"Ref": "TestVPC"}
+      }
+    },
+
+    "VPCDefaultRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {"Ref": "RouteTable1"},
+        "GatewayId": {"Ref": "IGW1"},
+        "DestinationCidrBlock": "0.0.0.0/0"
+      }
+    },
+
+    "RTableAss": {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : {"Ref": "RouteTable1"},
+        "SubnetId" : {"Ref": "TestSubnet"}
+      }
+    },
+
+    "IGW1": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {}
+    },
+
+    "IGWAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties":{
+        "InternetGatewayId": {"Ref": "IGW1"},
+        "VpcId": {"Ref": "TestVPC"}
+      }
+    },
+
+    "DHCPOptions1": {
+      "Type": "AWS::EC2::DHCPOptions",
+      "Properties": {
+        "DomainName": "epam.com",
+        "DomainNameServers" : [ "AmazonProvidedDNS" ]
+      }
+    },
+
+    "DHCPOptAssoc": {
+      "Type" : "AWS::EC2::VPCDHCPOptionsAssociation",
+      "Properties" : {
+        "DhcpOptionsId" : {"Ref":"DHCPOptions1"},
+        "VpcId" : {"Ref": "TestVPC"}
+      }
+    },
+
+    "NetAcl1": {
+      "Type": "AWS::EC2::NetworkAcl",
+      "Properties": {
+        "VpcId": {"Ref": "TestVPC"}
+      }
+    },
+
+    "NetAclEntryEgress": {
+      "Type": "AWS::EC2::NetworkAclEntry",
+      "Properties": {
+        "NetworkAclId": {"Ref": "NetAcl1"},
+        "CidrBlock": "0.0.0.0/0",
+        "Egress": "True",
+        "Protocol": "-1",
+        "RuleAction": "Allow",
+        "RuleNumber": "100"
+      }
+    },
+
+    "NetAclEntryIngress": {
+      "Type": "AWS::EC2::NetworkAclEntry",
+      "Properties": {
+        "NetworkAclId": {"Ref": "NetAcl1"},
+        "CidrBlock": "0.0.0.0/0",
+        "Egress": "False",
+        "Protocol": "-1",
+        "RuleAction": "Allow",
+        "RuleNumber": "100"
+      }
+    },
+
+    "AclAssoc": {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "SubnetId" : {"Ref": "TestSubnet"},
+        "NetworkAclId" : {"Ref": "NetAcl1"}
+      }
+    },
+
+    "SecGroup": {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupName" : {"Fn::Sub":"Test-VPC-SG-${AWS::StackName}"},
+        "GroupDescription" : "Test VPC Sec group",
+        "SecurityGroupIngress" : [
+          {
+            "CidrIp" : "0.0.0.0/0",
+            "FromPort" : "22",
+            "ToPort" : "22",
+            "IpProtocol" : "tcp"
+          },
+          {
+            "SourceSecurityGroupId": {"Ref":"ELBSecGroup"},
+            "FromPort" : "80",
+            "ToPort" : "80",
+            "IpProtocol" : "tcp"
+          }
+        ],
+        "VpcId" : {"Ref": "TestVPC"},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {"Fn::Sub":"Test-VPC-SG-${AWS::StackName}"}
+          }
+        ]
+      }
+    },
+
+    "ELBSecGroup": {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupName" : {"Fn::Sub":"Test-VPC-ELB-SG-${AWS::StackName}"},
+        "GroupDescription" : "Test VPC Sec group for ELB",
+        "SecurityGroupIngress" : [
+          {
+            "CidrIp" : "0.0.0.0/0",
+            "FromPort" : "80",
+            "ToPort" : "80",
+            "IpProtocol" : "tcp"
+          }
+        ],
+        "VpcId" : {"Ref": "TestVPC"},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {"Fn::Sub":"Test-VPC-ELB-SG-${AWS::StackName}"}
+          }
+        ]
+      }
+    }
+  },
+
+  "Outputs": {
+    "VpcId": {
+      "Value": {"Ref": "TestVPC"}
+    },
+
+    "SubnetId": {
+      "Value": {"Ref": "TestSubnet"}
+    },
+
+    "SecurityGroupId": {
+      "Value": {"Ref": "SecGroup"}
+    },
+
+    "ELBSecurityGroupId": {
+      "Value": {"Ref": "ELBSecGroup"}
+    },
+
+    "SubnetAZ": {
+      "Value": {"Fn::GetAtt":["TestSubnet", "AvailabilityZone"]}
+    }
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "VpcId": {
+      "Type": "String",
+      "Description": "ID of VPC"
+    },
+
+    "SubnetId": {
+      "Type": "String",
+      "Description": "ID of Subnet"
+    },
+
+    "InstanceType": {
+      "Type": "String",
+      "Description": "Type of instance",
+      "Default": "t2.micro"
+    },
+
+    "AmiId": {
+      "Type": "String",
+      "Description": "ID of AMI"
+    },
+
+    "SecurityGroup": {
+      "Type": "String",
+      "Description": "ID of SecurityGroup"
+    },
+
+    "ELBSecurityGroup": {
+      "Type": "String",
+      "Description": "ID of SecurityGroup for ELB"
+    },
+
+    "SSHKey": {
+      "Type": "String",
+      "Description": "SSH key name"
+    },
+
+    "InstanceProf": {
+      "Type": "String",
+      "Description": "Id of the instance profile to apply to EC2 instances"
+    },
+
+    "AZ": {
+      "Type": "String",
+      "Description": "AZ for EC2 instances"
+    }
+
+  },
+
+  "Resources": {
+
+    "LaunchConfig": {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "AssociatePublicIpAddress" : "True",
+        "BlockDeviceMappings" : [],
+        "IamInstanceProfile" : {"Ref":"InstanceProf"},
+        "ImageId" : {"Ref": "AmiId"},
+        "InstanceMonitoring" : "False",
+        "InstanceType" : {"Ref":"InstanceType"},
+        "KeyName" : {"Ref":"SSHKey"},
+        "SecurityGroups" : [{"Ref":"SecurityGroup"}],
+        "UserData": {
+          "Fn::Base64":{"Fn::Join":["",[
+            "#!/bin/bash\n",
+            "yum -y install nginx\n",
+            "service nginx restart\n"
+          ]]}
+        }
+      }
+    },
+
+    "ASGroup": {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : [{"Ref":"AZ"}],
+        "Cooldown" : "600",
+        "DesiredCapacity" : "2",
+        "HealthCheckType" : "ELB",
+        "HealthCheckGracePeriod": "180",
+        "LaunchConfigurationName" : {"Ref":"LaunchConfig"},
+        "LoadBalancerNames" : [{"Ref":"ELB"}],
+        "MaxSize" : "10",
+        "MinSize" : "2",
+        "Tags" : [
+          {
+            "Key": "Name",
+            "Value": {"Fn::Sub": "${AWS::StackName}-ASG"},
+            "PropagateAtLaunch": "True"
+          }
+        ],
+        "VPCZoneIdentifier" : [{"Ref":"SubnetId"}]
+      }
+    },
+
+    "ELB": {
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties": {
+        "AppCookieStickinessPolicy" : [
+          {
+            "CookieName" : "ELBStickness",
+            "PolicyName" : "Test-ELB-Policy"
+          }
+        ],
+        "ConnectionSettings" : {
+          "IdleTimeout" : "60"
+        },
+        "CrossZone" : "False",
+        "HealthCheck" : {
+          "HealthyThreshold" : "5",
+          "Interval" : "10",
+          "Target" : "HTTP:80/",
+          "Timeout" : "5",
+          "UnhealthyThreshold" : "5"
+        },
+        "LoadBalancerName" : "Application-ELB",
+        "Listeners" : [
+          {
+            "InstancePort" : "80",
+            "InstanceProtocol" : "HTTP",
+            "LoadBalancerPort" : "80",
+            "Protocol" : "HTTP"
+          }
+        ],
+        "Policies" : [],
+        "Scheme" : "",
+        "SecurityGroups" : [{"Ref":"ELBSecurityGroup"}],
+        "Subnets" : [{"Ref":"SubnetId"}]
+      }
+    }
+  },
+  "Outputs": {
+    "ELBPublicIP": {
+      "Description": "Public IP of the EC2 instance.",
+      "Value": {"Fn::GetAtt":["ELB", "DNSName"]}
+    },
+
+    "SiteURL": {
+      "Description": "URL of the site.",
+      "Value": {
+        "Fn::Join":["/",
+          ["http:/",{"Fn::GetAtt":["ELB", "DNSName"]}]]
+      }
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "InstanceType": {
+      "Type": "String",
+      "Description": "Type of instance",
+      "Default": "t2.micro"
+    },
+
+    "AmiId": {
+      "Type": "String",
+      "Description": "ID of AMI",
+      "Default": "ami-c58c1dd3"
+    },
+
+    "SSHKey": {
+      "Type": "String",
+      "Description": "SSH key name",
+      "Default": "Stacks-Dev"
+    },
+
+    "S3BucketName": {
+      "Type": "String",
+      "Default": "test-ec2-bucket"
+    }
+
+  },
+
+  "Resources": {
+
+    "VPC": {
+      "Type" : "AWS::CloudFormation::Stack",
+      "Properties" : {
+        "Tags" : [
+          {"Key":"StackType", "Value":"VPC"}
+        ],
+        "TemplateURL": {"Fn::Sub":"https://s3.amazonaws.com/${S3BucketName}/test-vpc.json"},
+        "TimeoutInMinutes" : "15"
+      }
+    },
+
+    "IAMStack": {
+      "Type" : "AWS::CloudFormation::Stack",
+      "Properties" : {
+        "Tags" : [
+          {"Key":"StackType", "Value":"IAM"}
+        ],
+        "TemplateURL": {"Fn::Sub":"https://s3.amazonaws.com/${S3BucketName}/test-iam.json"},
+        "TimeoutInMinutes" : "15",
+        "Parameters": {
+          "S3Bucket": {"Ref":"S3BucketName"}
+        }
+      }
+    },
+
+    "EC2Application": {
+      "Type" : "AWS::CloudFormation::Stack",
+      "Properties" : {
+        "Tags" : [
+          {"Key":"StackType", "Value":"EC2"}
+        ],
+        "TemplateURL": {"Fn::Sub":"https://s3.amazonaws.com/${S3BucketName}/test-ec2.json"},
+        "TimeoutInMinutes" : "15",
+        "Parameters": {
+          "VpcId": {"Fn::GetAtt":["VPC","Outputs.VpcId"]},
+          "SubnetId": {"Fn::GetAtt":["VPC","Outputs.SubnetId"]},
+          "SecurityGroup": {"Fn::GetAtt":["VPC","Outputs.SecurityGroupId"]},
+          "InstanceType": {"Ref": "InstanceType"},
+          "AmiId": {"Ref": "AmiId"},
+          "SSHKey": {"Ref": "SSHKey"},
+          "InstanceProf": {"Fn::GetAtt":["IAMStack","Outputs.InstanceProfile"]},
+          "AZ": {"Fn::GetAtt":["VPC","Outputs.SubnetAZ"]},
+          "ELBSecurityGroup": {"Fn::GetAtt":["VPC","Outputs.ELBSecurityGroupId"]}
+
+        }
+      }
+
+    }
+
+  },
+
+  "Outputs": {
+    "EC2ApplicationPublicIP": {
+      "Value": {"Fn::GetAtt":["EC2Application", "Outputs.ELBPublicIP"]}
+    },
+
+    "EC2ApplicationURL": {
+      "Value": {"Fn::GetAtt":["EC2Application", "Outputs.SiteURL"]}
+    }
+
+  }
+}
