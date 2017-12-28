@@ -19,7 +19,7 @@
   tasks:
   - name: install modules in a virtualenv
     pip:
-      requirements: /home/ubuntu/app/pipreq.txt
+      requirements: /home/ubuntu/pipreq.txt
       virtualenv: /home/ubuntu/app/env
       virtualenv_python: python2.7
 
