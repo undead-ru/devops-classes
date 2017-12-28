@@ -1,14 +1,29 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
 
-
+  "Parameters": {
+    "ImageId": {
+      "Type": "String",
+      "Default": "ami-aa2ea6d0"
+    },
+  "SSHKey" : {
+    "Description" : "The EC2 Key Pair to allow SSH access to the instances",
+    "Type" : "AWS::EC2::KeyPair::KeyName",
+    "ConstraintDescription" : "must be the name of an existing EC2 KeyPair.",
+    "Default": "Blabla"
+  },
+    "S3Bucket": {
+      "Type": "String",
+      "Default": "devops-classes"
+    }
+  },
 
   "Resources": {
 
     "DevVPC": {
       "Type": "AWS::EC2::VPC",
       "Properties": {
-        "CidrBlock": "10.12.0.0/23",
+        "CidrBlock": "10.2.0.0/16",
         "Tags": [
           {
             "Key": "Name",
@@ -20,26 +35,24 @@
       }
     },
 
-
     "DevSubnet1": {
       "Type": "AWS::EC2::Subnet",
       "DependsOn": "DevVPC",
       "Properties": {
         "VpcId": {"Ref": "DevVPC"},
         "AvailabilityZone": {"Fn::Select":["0",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]},
-        "CidrBlock": "10.12.0.0/24",
+        "CidrBlock": "10.2.1.0/24",
         "MapPublicIpOnLaunch": "True"
       }
     },
-
 
     "DevSubnet2": {
       "Type": "AWS::EC2::Subnet",
       "DependsOn": "DevVPC",
       "Properties": {
         "VpcId": {"Ref": "DevVPC"},
-        "AvailabilityZone": {"Fn::Select":["0",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]},
-        "CidrBlock": "10.12.1.0/24",
+        "AvailabilityZone": {"Fn::Select":["1",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]},
+        "CidrBlock": "10.2.2.0/24",
         "MapPublicIpOnLaunch": "True"
       }
     },
@@ -115,6 +128,19 @@
       }
     },
 
+    "IGW1": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {}
+    },
+
+    "IGWAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties":{
+        "InternetGatewayId": {"Ref": "IGW1"},
+        "VpcId": {"Ref": "DevVPC"}
+      }
+    },
+
     "NatGateway1": {
       "Type": "AWS::EC2::NatGateway",
       "Properties": {
@@ -137,7 +163,7 @@
       "Type" : "AWS::EC2::Route",
       "Properties" : {
         "RouteTableId" : { "Ref" : "RouteTable" },
-        "DestinationCidrBlock" : "0.0.0.0/0",
+        "DestinationCidrBlock" : "10.12.1.0/24",
         "NatGatewayId" : { "Ref" : "NatGateway1" }
       }
     },
@@ -146,7 +172,7 @@
       "Type" : "AWS::EC2::Route",
       "Properties" : {
         "RouteTableId" : { "Ref" : "RouteTable" },
-        "DestinationCidrBlock" : "0.0.0.0/0",
+        "DestinationCidrBlock" : "10.12.2.0/24",
         "NatGatewayId" : { "Ref" : "NatGateway2" }
       }
     },
@@ -169,18 +195,12 @@
       "Type": "AWS::EC2::SecurityGroup",
       "Properties": {
         "GroupName": {"Fn::Sub": "Dev-VPC-SG-${AWS::StackName}"},
-        "GroupDescription": "Test VPC Sec group",
+        "GroupDescription": "Dev VPC Sec group",
         "SecurityGroupIngress": [
           {
             "CidrIp": "0.0.0.0/0",
             "FromPort": "22",
             "ToPort": "22",
-            "IpProtocol": "tcp"
-          },
-          {
-            "SourceSecurityGroupId": {"Ref": "ELBSecGroup"},
-            "FromPort": "80",
-            "ToPort": "80",
             "IpProtocol": "tcp"
           }
         ],
@@ -194,41 +214,17 @@
       }
     },
 
-    "ELBSecGroup": {
-      "Type": "AWS::EC2::SecurityGroup",
-      "Properties": {
-        "GroupName": {"Fn::Sub": "Dev-ELB-SG-${AWS::StackName}"},
-        "GroupDescription": "Sec group for ELB",
-        "SecurityGroupIngress": [
-          {
-            "CidrIp": "0.0.0.0/0",
-            "FromPort": "80",
-            "ToPort": "80",
-            "IpProtocol": "tcp"
-          }
-        ],
-        "VpcId": {"Ref": "DevVPC"},
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {"Fn::Sub": "Dev-ELB-SG-${AWS::StackName}"}
-          }
-        ]
-      }
-    },
-
-
     "LaunchConfig": {
         "Type" : "AWS::AutoScaling::LaunchConfiguration",
         "Properties" : {
           "AssociatePublicIpAddress" : "True",
           "BlockDeviceMappings" : [],
-          "IamInstanceProfile" : {"Ref":"InstanceProf"},
-          "ImageId" : {"Ref": "AmiId"},
+          "IamInstanceProfile" : {"Ref":"InstanceProfile"},
+          "ImageId" : {"Ref": "ImageId"},
           "InstanceMonitoring" : "False",
-          "InstanceType" : {"Ref":"InstanceType"},
+          "InstanceType" : "t2.micro",
           "KeyName" : {"Ref":"SSHKey"},
-          "SecurityGroups" : [{"Ref":"SecurityGroup"}],
+          "SecurityGroups" : [{"Ref":"SecGroup"}],
           "UserData": {
             "Fn::Base64":{"Fn::Join":["",[
               "#!/bin/bash\n",
@@ -241,8 +237,9 @@
 
       "ASGroup": {
         "Type" : "AWS::AutoScaling::AutoScalingGroup",
+        "DependsOn": ["DevVPC", "DevSubnet1", "DevSubnet2", "IGW1"],
         "Properties" : {
-          "AvailabilityZones" : [{"Ref":"AZ"}],
+          "AvailabilityZones" : [{"Fn::Select":["0",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]},{"Fn::Select":["1",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]}],
           "Cooldown" : "600",
           "DesiredCapacity" : "2",
           "HealthCheckType" : "ELB",
@@ -258,7 +255,7 @@
               "PropagateAtLaunch": "True"
             }
           ],
-          "VPCZoneIdentifier" : [{"Ref":"SubnetId"}]
+          "VPCZoneIdentifier": [{"Ref":"DevSubnet1"},{"Ref":"DevSubnet2"}]
         }
       },
 
@@ -282,7 +279,6 @@
             "Timeout" : "5",
             "UnhealthyThreshold" : "5"
           },
-          "LoadBalancerName" : "Application-ELB",
           "Listeners" : [
             {
               "InstancePort" : "80",
@@ -293,43 +289,61 @@
           ],
           "Policies" : [],
           "Scheme" : "",
-          "SecurityGroups" : [{"Ref":"ELBSecurityGroup"}],
-          "Subnets" : [{"Ref":"SubnetId"}]
+          "SecurityGroups" : [{"Ref":"SecGroup"}],
+          "Subnets": [{"Ref":"DevSubnet1"},{"Ref":"DevSubnet2"}]
         }
+      },
+
+
+    "IAMRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [ {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": [ "ec2.amazonaws.com" ]
+            },
+            "Action": [ "sts:AssumeRole" ]
+          } ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "S3Policy",
+            "PolicyDocument": {
+              "Version" : "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:Get*",
+                    "s3:List*"
+                  ],
+                  "Resource": [
+                    {"Fn::Sub": "arn:aws:s3:::${S3Bucket}"},
+                    {"Fn::Sub": "arn:aws:s3:::${S3Bucket}/*"}
+                  ]
+                }
+              ]
+            }
+          }
+        ]
       }
+    },
 
-
+    "InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [{"Ref": "IAMRole"}]
+      }
+    }
 
   },
 
   "Outputs": {
-    "VpcId": {
-      "Value": {"Ref": "DevVPC"}
-    },
-
-    "SubnetId1": {
-      "Value": {"Ref": "DevSubnet1"}
-    },
-
-    "SubnetId2": {
-      "Value": {"Ref": "DevSubnet2"}
-    },
-
-    "SecurityGroupId": {
-      "Value": {"Ref": "SecGroup"}
-    },
-
-    "ELBSecurityGroupId": {
-      "Value": {"Ref": "ELBSecGroup"}
-    },
-
-    "SubnetAZ": {
-      "Value": {"Fn::GetAtt":["DevSubnet1", "AvailabilityZone"]}
-    },
-
-    "SubnetAZ2": {
-      "Value": {"Fn::GetAtt":["DevSubnet2", "AvailabilityZone"]}
-    }
 
     "ELBPublicIP": {
         "Description": "Public IP of the EC2 instance.",
