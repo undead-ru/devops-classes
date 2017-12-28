@@ -16,9 +16,7 @@
   tasks:
   - name: install modules in a virtualenv
     pip:
-      requirements:
-        - Flask: 0.12.2
-        - gunicorn: 19.7.1
+      requirements: /home/ubuntu/app/pipreq.txt
       virtualenv: /home/ubuntu/app/env
       virtualenv_python: python3.5
 
