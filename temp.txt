@@ -1,0 +1,8 @@
+#!/bin/bash
+sudo apt-get update
+sudo apt-get -y install software-properties-common
+sudo apt-add-repository ppa:ansible/ansible
+sudo apt-get update
+sudo apt-get -y install ansible git
+git clone https://github.com/undead-ru/devops-classes.git
+ansible-playbook -i "localhost," -c local app.yml
