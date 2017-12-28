@@ -47,7 +47,6 @@
     file:
       path: /etc/nginx/sites-enabled/default
       state: absent
-      command: mv /etc/nginx/sites-enabled/default /tmp/nginx.sites-enabled.default
 
   - name: enable nginx site
     file:

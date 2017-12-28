@@ -1,9 +1,11 @@
 #!/bin/bash
 sudo apt-get update
-sudo apt-get -y install ansible git
+sudo apt-get -y install software-properties-common
+sudo apt-add-repository -y ppa:ansible/ansible
+sudo apt-get update
+sudo apt-get -y install ansible git virtualenv
 git init
 git remote add origin https://github.com/undead-ru/devops-classes.git
 git fetch
 git checkout -t origin/master
-cd devops-classes
 ansible-playbook -i "localhost," -c local app.yml
