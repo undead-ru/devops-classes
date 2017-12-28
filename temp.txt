@@ -1,12 +1,14 @@
 #!/bin/bash
-sudo apt-get update
-sudo apt-get -y install software-properties-common
-sudo apt-add-repository -y ppa:ansible/ansible
-sudo apt-get update
-sudo apt-get -y install ansible git
+#apt-get update
+#apt-get -y install software-properties-common
+apt-add-repository -y ppa:ansible/ansible
+apt-get update
+apt-get -y install ansible git
 su ubuntu
 git init
-git remote add origin https://github.com/undead-ru/devops-classes.git
+git remote add origin git@github.com:undead-ru/devops-classes.git
 git fetch
 git checkout -t origin/master
+ls -la /home/ubuntu
+ls -la /home/ubuntu/app
 ansible-playbook -i "localhost," -c local app.yml
