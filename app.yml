@@ -8,8 +8,11 @@
   - name: install packages
     apt: name={{item}} state=installed
     with_items:
-      - python3-pip
-      - python3-dev
+#      - tree         # Optional
+      - python-pip   # Optional
+      - python-dev   # Optional
+#      - python3-pip
+#      - python3-dev
       - nginx
 
 - hosts: all
@@ -18,7 +21,7 @@
     pip:
       requirements: /home/ubuntu/app/pipreq.txt
       virtualenv: /home/ubuntu/app/env
-      virtualenv_python: python3.5
+      virtualenv_python: python2.7
 
 - hosts: all
   become: yes
