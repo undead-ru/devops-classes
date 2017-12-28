@@ -8,9 +8,6 @@
   - name: install packages
     apt: name={{item}} state=installed
     with_items:
-      - tree         # Optional
-      - python-pip   # Optional
-      - python-dev   # Optional
       - python3-pip
       - python3-dev
       - nginx
@@ -33,8 +30,9 @@
     copy:
       src: .service
       dest: /etc/systemd/system/app.service
+
   - name: start systemd app service
-    systemd:
+    service:
       name: app.service
       state: restarted
       enabled: yes
@@ -45,16 +43,24 @@
       dest: /etc/nginx/sites-available/app
 
   - name: remove default nginx site config
-    file: path=/etc/nginx/sites-enabled/default state=absent
-  # - command: mv /etc/nginx/sites-enabled/default /tmp/nginx.sites-enabled.default
+    file:
+      path: /etc/nginx/sites-enabled/default
+      state: absent
+      command: mv /etc/nginx/sites-enabled/default /tmp/nginx.sites-enabled.default
+
   - name: enable nginx site
     file:
       src: /etc/nginx/sites-available/app
       dest: /etc/nginx/sites-enabled/default
       state: link
       force: yes
+
   - name: restart nginx
-    systemd: name=nginx state=restarted enabled=yes
+    service:
+      name: nginx
+      state: restarted
+      enabled: yes
+
   - name: open firewall for nginx
     ufw:
       rule: allow
