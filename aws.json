@@ -6,12 +6,12 @@
       "Type": "String",
       "Default": "ami-aa2ea6d0"
     },
-  "SSHKey" : {
-    "Description" : "The EC2 Key Pair to allow SSH access to the instances",
-    "Type" : "AWS::EC2::KeyPair::KeyName",
-    "ConstraintDescription" : "must be the name of an existing EC2 KeyPair.",
-    "Default": "Blabla"
-  },
+    "SSHKey" : {
+      "Description" : "The EC2 Key Pair to allow SSH access to the instances",
+      "Type" : "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair.",
+      "Default": "aaaa"
+    },
     "S3Bucket": {
       "Type": "String",
       "Default": "devops-classes"
@@ -191,10 +191,10 @@
       }
     },
 
-    "SecGroup": {
+    "SecGroupELB": {
       "Type": "AWS::EC2::SecurityGroup",
       "Properties": {
-        "GroupName": {"Fn::Sub": "Dev-VPC-SG-${AWS::StackName}"},
+        "GroupName": {"Fn::Sub": "Dev-VPC-SG-ELB-${AWS::StackName}"},
         "GroupDescription": "Dev VPC Sec group",
         "SecurityGroupIngress": [
           {
@@ -202,13 +202,76 @@
             "FromPort": "22",
             "ToPort": "22",
             "IpProtocol": "tcp"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "ToPort": "80",
+            "IpProtocol": "tcp"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "22",
+            "ToPort": "22",
+            "IpProtocol": "tcp"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "ToPort": "80",
+            "IpProtocol": "tcp"
           }
         ],
         "VpcId": {"Ref": "DevVPC"},
         "Tags": [
           {
             "Key": "Name",
-            "Value": {"Fn::Sub":"Dev-VPC-SG-${AWS::StackName}"}
+            "Value": {"Fn::Sub":"Dev-VPC-SG-ELB-${AWS::StackName}"}
+          }
+        ]
+      }
+    },
+
+    "SecGroupEC2": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupName": {"Fn::Sub": "Dev-VPC-SG-EC2-${AWS::StackName}"},
+        "GroupDescription": "Dev VPC Sec group",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "22",
+            "ToPort": "22",
+            "IpProtocol": "tcp"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "ToPort": "80",
+            "IpProtocol": "tcp"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "22",
+            "ToPort": "22",
+            "IpProtocol": "tcp"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "ToPort": "80",
+            "IpProtocol": "tcp"
+          }
+        ],
+        "VpcId": {"Ref": "DevVPC"},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {"Fn::Sub":"Dev-VPC-SG-EC2-${AWS::StackName}"}
           }
         ]
       }
@@ -224,15 +287,19 @@
           "InstanceMonitoring" : "False",
           "InstanceType" : "t2.micro",
           "KeyName" : {"Ref":"SSHKey"},
-          "SecurityGroups" : [{"Ref":"SecGroup"}],
-          "UserData": {
-            "Fn::Base64":{"Fn::Join":["",[
+          "SecurityGroups" : [{"Ref":"SecGroupEC2"}],
+          "UserData": {"Fn::Base64":{"Fn::Join":["",[
               "#!/bin/bash\n",
-              "sudo apt-get update\n",
-              "sudo apt-get -y install software-properties-common\n",
-              "sudo apt-add-repository ppa:ansible/ansible\n",
-              "sudo apt-get update\n",
-              "sudo apt-get -y install ansible git\n"
+              "apt-add-repository -y ppa:ansible/ansible\n",
+              "apt-get update\n",
+              "apt-get -y install ansible git gosu\n",
+              "cd /home/ubuntu\n",
+              "git init\n",
+              "git remote add origin https://github.com/undead-ru/devops-classes.git\n",
+              "git fetch\n",
+              "git checkout -t origin/master\n",
+              "chown ubuntu:ubuntu /home/ubuntu -R\n",
+              "gosu ubuntu ansible-playbook -i \"localhost,\" -c local app.yml\n"
             ]]}
           }
         }
@@ -249,7 +316,7 @@
           "HealthCheckGracePeriod": "180",
           "LaunchConfigurationName" : {"Ref":"LaunchConfig"},
           "LoadBalancerNames" : [{"Ref":"ELB"}],
-          "MaxSize" : "10",
+          "MaxSize" : "4",
           "MinSize" : "2",
           "Tags" : [
             {
@@ -277,14 +344,14 @@
           "CrossZone" : "False",
           "HealthCheck" : {
             "HealthyThreshold" : "5",
-            "Interval" : "10",
-            "Target" : "HTTP:80/",
-            "Timeout" : "5",
-            "UnhealthyThreshold" : "5"
+            "Interval" : "20",
+            "Target" : "HTTP:8080/",
+            "Timeout" : "10",
+            "UnhealthyThreshold" : "10"
           },
           "Listeners" : [
             {
-              "InstancePort" : "80",
+              "InstancePort" : "8080",
               "InstanceProtocol" : "HTTP",
               "LoadBalancerPort" : "80",
               "Protocol" : "HTTP"
@@ -292,11 +359,10 @@
           ],
           "Policies" : [],
           "Scheme" : "",
-          "SecurityGroups" : [{"Ref":"SecGroup"}],
+          "SecurityGroups" : [{"Ref":"SecGroupELB"}],
           "Subnets": [{"Ref":"DevSubnet1"},{"Ref":"DevSubnet2"}]
         }
       },
-
 
     "IAMRole": {
       "Type": "AWS::IAM::Role",
@@ -347,19 +413,11 @@
   },
 
   "Outputs": {
-
-    "ELBPublicIP": {
-        "Description": "Public IP of the EC2 instance.",
-        "Value": {"Fn::GetAtt":["ELB", "DNSName"]}
-    },
-
     "SiteURL": {
       "Description": "URL of the site.",
       "Value": {
         "Fn::Join":["/", ["http:/",{"Fn::GetAtt":["ELB", "DNSName"]}]]
         }
       }
-    }
-
-
+     }
 }
