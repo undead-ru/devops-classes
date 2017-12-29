@@ -80,6 +80,25 @@
       }
     },
 
+    "Route1" : {
+      "Type" : "AWS::EC2::Route",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "NatGatewayId" : { "Ref" : "NatGateway1" }
+      }
+    },
+
+    "Route2" : {
+      "Type" : "AWS::EC2::Route",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "NatGatewayId" : { "Ref" : "NatGateway2" }
+      }
+    },
+
+
     "NetAcl1": {
       "Type": "AWS::EC2::NetworkAcl",
       "Properties": {
@@ -156,24 +175,6 @@
         "AllocationId" : {"Fn::GetAtt" : ["EIP2", "AllocationId"]},
         "SubnetId" : { "Ref" : "DevSubnet2"}
 
-      }
-    },
-
-    "Route1" : {
-      "Type" : "AWS::EC2::Route",
-      "Properties" : {
-        "RouteTableId" : { "Ref" : "RouteTable" },
-        "DestinationCidrBlock" : "10.12.1.0/24",
-        "NatGatewayId" : { "Ref" : "NatGateway1" }
-      }
-    },
-
-    "Route2" : {
-      "Type" : "AWS::EC2::Route",
-      "Properties" : {
-        "RouteTableId" : { "Ref" : "RouteTable" },
-        "DestinationCidrBlock" : "10.12.2.0/24",
-        "NatGatewayId" : { "Ref" : "NatGateway2" }
       }
     },
 
@@ -320,8 +321,8 @@
             "HealthyThreshold" : "5",
             "Interval" : "20",
             "Target" : "HTTP:8080/",
-            "Timeout" : "10",
-            "UnhealthyThreshold" : "10"
+            "Timeout" : "5",
+            "UnhealthyThreshold" : "5"
           },
           "Listeners" : [
             {
