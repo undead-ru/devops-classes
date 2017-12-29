@@ -199,12 +199,6 @@
         "SecurityGroupIngress": [
           {
             "CidrIp": "0.0.0.0/0",
-            "FromPort": "22",
-            "ToPort": "22",
-            "IpProtocol": "tcp"
-          },
-          {
-            "CidrIp": "0.0.0.0/0",
             "FromPort": "80",
             "ToPort": "80",
             "IpProtocol": "tcp"
@@ -212,15 +206,9 @@
         ],
         "SecurityGroupEgress": [
           {
-            "CidrIp": "0.0.0.0/0",
-            "FromPort": "22",
-            "ToPort": "22",
-            "IpProtocol": "tcp"
-          },
-          {
-            "CidrIp": "0.0.0.0/0",
-            "FromPort": "80",
-            "ToPort": "80",
+            "CidrIp": "10.2.0.0/16",
+            "FromPort": "8080",
+            "ToPort": "8080",
             "IpProtocol": "tcp"
           }
         ],
@@ -239,20 +227,6 @@
       "Properties": {
         "GroupName": {"Fn::Sub": "Dev-VPC-SG-EC2-${AWS::StackName}"},
         "GroupDescription": "Dev VPC Sec group",
-        "SecurityGroupEgress": [
-          {
-            "CidrIp": "0.0.0.0/0",
-            "FromPort": "22",
-            "ToPort": "22",
-            "IpProtocol": "tcp"
-          },
-          {
-            "CidrIp": "0.0.0.0/0",
-            "FromPort": "80",
-            "ToPort": "80",
-            "IpProtocol": "tcp"
-          }
-        ],
         "SecurityGroupIngress": [
           {
             "CidrIp": "0.0.0.0/0",
@@ -262,8 +236,8 @@
           },
           {
             "CidrIp": "0.0.0.0/0",
-            "FromPort": "80",
-            "ToPort": "80",
+            "FromPort": "8080",
+            "ToPort": "8080",
             "IpProtocol": "tcp"
           }
         ],
