@@ -57,7 +57,7 @@
       }
     },
 
-    "DevSubnet1": {
+    "DevSubnetPrivate1": {
       "Type": "AWS::EC2::Subnet",
       "DependsOn": "DevVPC",
       "Properties": {
@@ -68,7 +68,7 @@
       }
     },
 
-    "DevSubnet2": {
+    "DevSubnetPrivate2": {
       "Type": "AWS::EC2::Subnet",
       "DependsOn": "DevVPC",
       "Properties": {
@@ -83,7 +83,7 @@
       "Type": "AWS::EC2::RouteTable",
       "Properties": {
         "VpcId": {"Ref": "DevVPC"},
-        "Tags": [{"Key": "Name", "Value": "Private1"}]
+        "Tags": [{"Key": "Name", "Value": "RTPrivate1"}]
         }
     },
 
@@ -91,7 +91,7 @@
       "Type": "AWS::EC2::RouteTable",
       "Properties": {
         "VpcId": {"Ref": "DevVPC"},
-        "Tags": [{"Key": "Name", "Value": "Private2"}]
+        "Tags": [{"Key": "Name", "Value": "RTPrivate2"}]
       }
     },
 
@@ -107,7 +107,7 @@
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
       "Properties": {
         "RouteTableId": {"Ref": "RouteTablePrivate1"},
-        "SubnetId": {"Ref": "DevSubnet1"}
+        "SubnetId": {"Ref": "DevSubnetPrivate1"}
       }
     },
 
@@ -115,7 +115,7 @@
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
       "Properties": {
         "RouteTableId": {"Ref": "RouteTablePrivate2"},
-        "SubnetId": {"Ref": "DevSubnet2"}
+        "SubnetId": {"Ref": "DevSubnetPrivate2"}
       }
     },
 
@@ -196,7 +196,7 @@
     "AclAssoc1": {
       "Type": "AWS::EC2::SubnetNetworkAclAssociation",
       "Properties": {
-        "SubnetId": {"Ref": "DevSubnet1"},
+        "SubnetId": {"Ref": "DevSubnetPrivate1"},
         "NetworkAclId": {"Ref": "NetAcl1"}
       }
     },
@@ -204,7 +204,7 @@
     "AclAssoc2": {
       "Type": "AWS::EC2::SubnetNetworkAclAssociation",
       "Properties": {
-        "SubnetId": {"Ref": "DevSubnet2"},
+        "SubnetId": {"Ref": "DevSubnetPrivate2"},
         "NetworkAclId": {"Ref": "NetAcl1"}
       }
     },
@@ -226,7 +226,7 @@
       "Type": "AWS::EC2::NatGateway",
       "Properties": {
         "AllocationId" : {"Fn::GetAtt" : ["EIP1", "AllocationId"]},
-        "SubnetId" : { "Ref" : "DevSubnet1"}
+        "SubnetId" : { "Ref" : "DevSubnetPrivate1"}
       }
     },
 
@@ -234,7 +234,7 @@
       "Type": "AWS::EC2::NatGateway",
       "Properties": {
         "AllocationId" : {"Fn::GetAtt" : ["EIP2", "AllocationId"]},
-        "SubnetId" : { "Ref" : "DevSubnet2"}
+        "SubnetId" : { "Ref" : "DevSubnetPrivate2"}
       }
     },
 
@@ -291,12 +291,6 @@
         "GroupDescription": "Dev VPC Sec group",
         "SecurityGroupIngress": [
           {
-            "CidrIp": "0.0.0.0/0",
-            "FromPort": "8080",
-            "ToPort": "8080",
-            "IpProtocol": "tcp"
-          },
-          {
             "SourceSecurityGroupId": {"Ref": "SecGroupELB"},
             "FromPort": "8080",
             "ToPort": "8080",
@@ -343,7 +337,7 @@
 
       "ASGroup": {
         "Type" : "AWS::AutoScaling::AutoScalingGroup",
-        "DependsOn": ["DevVPC", "DevSubnet1", "DevSubnet2", "IGW1"],
+        "DependsOn": ["DevVPC", "DevSubnetPrivate1", "DevSubnetPrivate2", "IGW1"],
         "Properties" : {
           "AvailabilityZones" : [{"Fn::Select":["0",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]},{"Fn::Select":["1",{"Fn::GetAZs": {"Ref":"AWS::Region"}}]}],
           "Cooldown" : "600",
@@ -361,7 +355,7 @@
               "PropagateAtLaunch": "True"
             }
           ],
-          "VPCZoneIdentifier": [{"Ref":"DevSubnet1"},{"Ref":"DevSubnet2"}]
+          "VPCZoneIdentifier": [{"Ref":"DevSubnetPrivate1"},{"Ref":"DevSubnetPrivate2"}]
         }
       },
 
@@ -396,7 +390,7 @@
           "Policies" : [],
           "Scheme" : "",
           "SecurityGroups" : [{"Ref":"SecGroupELB"}],
-          "Subnets": [{"Ref":"DevSubnetPublic1"},{"Ref":"DevSubnetPublic2"}]
+          "Subnets": [{"Ref":"DevSubnetPrivate1"},{"Ref":"DevSubnetPrivate2"}]
         }
       },
 
